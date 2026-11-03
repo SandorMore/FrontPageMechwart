@@ -1,0 +1,29 @@
+#név
+name: Deploy
+
+#mikor hova
+on: 
+  push:
+    branches: [main]
+
+#miket csináljon
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+      
+      - run: npm ci
+      - run: npm run build
+
+      - uses: SamKirkland/FPT-Deploy-Action@v4.3.5
+      - with:
+        server:
+        usename:
+        password:
+        local-dir: dist/
+        server-dir: /
