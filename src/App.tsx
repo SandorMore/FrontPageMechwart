@@ -1,10 +1,8 @@
-import './App.css'
-
 function App() {
 
   return (
     <>
-      <p>Hali</p>
+      <p>Boldi a legjobb liga player ever!!!!</p>
     </>
   )
 }
