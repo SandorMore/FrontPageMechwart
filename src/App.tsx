@@ -76,6 +76,8 @@ function App() {
   const dealerFinal = state.holeRevealed
   const dealerShown = dealerFinal ? state.dealer : state.dealer.slice(0, 1)
   const dealerBust = handValue(state.dealer).total > 21 && dealerFinal
+  // Many hands or long hands reach the table's curved corners: flatten the curve and give them more room.
+  const crowded = state.hands.length >= 4 || state.hands.some((h) => h.cards.length >= 4)
 
   return (
     <div className="app">
@@ -102,7 +104,7 @@ function App() {
         </div>
       </header>
 
-      <main className="felt">
+      <main className={`felt${crowded ? ' crowded' : ''}`}>
         <section className="dealer" aria-label="Dealer">
           <div className="cards">
             {state.dealer.map((card, i) => (
