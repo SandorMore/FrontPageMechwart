@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basszus – Am7</title>
+<style>
+  :root {
+    --bg: #14110f; --text: #f1ebe4; --muted: #a99d91;
+    --wood: #5a3a22; --wood-dark: #3d2716; --fret: #c9c4bc; --string: #d8d2c8;
+    --root: #e0533d; --tone: #e6b93f; --tone-ink: #241a02;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif; display: grid; place-items: center; padding: 24px 16px; }
+  main { width: 100%; max-width: 1100px; display: grid; gap: 18px; }
+  h1 { margin: 0; font-size: 1.6rem; }
+  p { margin: 0; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: .9rem; color: var(--muted); }
+  .dot { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+    font-weight: 800; font-size: .75rem; vertical-align: middle; margin-right: 6px; }
+  .dot.root { background: var(--root); color: #fff; }
+  .dot.tone { background: var(--tone); color: var(--tone-ink); }
+  .scroll { overflow-x: auto; padding-bottom: 6px; }
+  .neck { position: relative; min-width: 820px; display: grid;
+    grid-template-columns: 52px repeat(12, 1fr); grid-template-rows: repeat(4, 46px) 26px; }
+  .board { grid-column: 2 / -1; grid-row: 1 / 5; background: linear-gradient(var(--wood), var(--wood-dark));
+    border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  .nut { grid-column: 1; grid-row: 1 / 5; justify-self: end; width: 8px; background: #eee6d6; border-radius: 2px; }
+  .fretline { grid-row: 1 / 5; justify-self: end; width: 3px; background: var(--fret); }
+  .inlay { grid-row: 1 / 5; align-self: center; justify-self: center; width: 14px; height: 14px;
+    border-radius: 50%; background: rgba(255,255,255,.25); }
+  .inlay.double { box-shadow: 0 -60px 0 rgba(255,255,255,.25), 0 60px 0 rgba(255,255,255,.25); background: none; }
+  .string { grid-column: 1 / -1; align-self: center; pointer-events: none; z-index: 1; background: var(--string); }
+  .cell { z-index: 2; display: grid; place-items: center; border: 0; background: none; padding: 0;
+    cursor: pointer; color: inherit; font: inherit; }
+  .cell:hover .note { transform: scale(1.12); }
+  .note { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 800; font-size: .8rem; transition: transform .1s; }
+  .note.root { background: var(--root); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  .note.tone { background: var(--tone); color: var(--tone-ink); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  .note.ghost { opacity: 0; background: rgba(255,255,255,.85); color: #222; }
+  .cell:hover .note.ghost { opacity: .7; }
+  .note.playing { animation: ping .45s ease-out; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.8); } 100% { box-shadow: 0 0 0 16px rgba(255,255,255,0); } }
+  .open-label { font-weight: 700; color: var(--muted); }
+  .num { grid-row: 5; text-align: center; font-size: .75rem; color: var(--muted); align-self: end; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  button.btn { min-height: 42px; padding: 8px 16px; border-radius: 10px; border: 1px solid #3a322b;
+    background: #221d19; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+  button.btn.primary { background: var(--tone); border-color: var(--tone); color: var(--tone-ink); }
+  label { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>A moll szeptim (Am7) – 4 húros basszus</h1>
+    <p>Hangok: A (alaphang) · C (kis terc) · E (kvint) · G (kis szeptim). Kattints bármelyik hangra a fogólapon, hogy meghalld.</p>
+  </div>
+  <div class="legend">
+    <span><span class="dot root">A</span>alaphang</span>
+    <span><span class="dot tone">C</span>akkordhang</span>
+    <label><input type="checkbox" id="all" /> minden hang mutatása</label>
+  </div>
+  <div class="scroll"><div class="neck" id="neck"></div></div>
+  <div class="buttons">
+    <button class="btn primary" id="arp">Am7 arpeggio lejátszása</button>
+    <button class="btn" id="arp2">Arpeggio a 5. bundnál</button>
+  </div>
+</main>
+<script>
+  const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'H']
+  const CHORD = { 9: 'root', 0: 'tone', 4: 'tone', 7: 'tone' } // A, C, E, G
+  // Standard tuning, top row = highest string (G), as seen when looking down at the neck.
+  const STRINGS = [{ name: 'G', midi: 43 }, { name: 'D', midi: 38 }, { name: 'A', midi: 33 }, { name: 'E', midi: 28 }]
+  const FRETS = 12
+  const neck = document.getElementById('neck')
+
+  const el = (cls, style) => { const d = document.createElement('div'); d.className = cls; Object.assign(d.style, style); return d }
+  neck.append(el('board'), el('nut'))
+  for (let f = 1; f <= FRETS; f++) {
+    neck.append(el('fretline', { gridColumn: f + 1 }))
+    if ([3, 5, 7, 9].includes(f)) neck.append(el('inlay', { gridColumn: f + 1 }))
+    if (f === 12) neck.append(el('inlay double', { gridColumn: f + 1 }))
+    const n = el('num', { gridColumn: f + 1 }); n.textContent = f; neck.append(n)
+  }
+  STRINGS.forEach((s, row) => neck.append(el('string', { gridRow: row + 1, height: `${2 + row}px` })))
+
+  const cells = new Map()
+  STRINGS.forEach((s, row) => {
+    for (let f = 0; f <= FRETS; f++) {
+      const midi = s.midi + f
+      const pc = midi % 12
+      const role = CHORD[pc]
+      const btn = document.createElement('button')
+      btn.className = 'cell'
+      btn.style.gridRow = row + 1
+      btn.style.gridColumn = f + 1
+      btn.setAttribute('aria-label', `${s.name} húr, ${f}. bund: ${NAMES[pc]}`)
+      const note = document.createElement('span')
+      note.className = 'note ' + (role || 'ghost')
+      note.textContent = NAMES[pc]
+      if (f === 0 && !role) note.classList.add('open-label')
+      btn.append(note)
+      btn.addEventListener('click', () => play(midi, note))
+      neck.append(btn)
+      cells.set(`${row}:${f}`, { midi, note })
+    }
+  })
+
+  document.getElementById('all').addEventListener('change', (e) => {
+    document.querySelectorAll('.note.ghost').forEach((n) => { n.style.opacity = e.target.checked ? '.7' : '' })
+  })
+
+  let ctx
+  function play(midi, noteEl, when = 0) {
+    ctx ??= new (window.AudioContext || window.webkitAudioContext)()
+    const t = ctx.currentTime + when
+    const freq = 440 * 2 ** ((midi - 69) / 12)
+    const osc = ctx.createOscillator(), sub = ctx.createOscillator()
+    const filter = ctx.createBiquadFilter(), gain = ctx.createGain()
+    osc.type = 'sawtooth'; osc.frequency.value = freq
+    sub.type = 'sine'; sub.frequency.value = freq
+    filter.type = 'lowpass'; filter.Q.value = 4
+    filter.frequency.setValueAtTime(freq * 8, t)
+    filter.frequency.exponentialRampToValueAtTime(freq * 1.5, t + 0.4)
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.5, t + 0.008)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.6)
+    osc.connect(filter); sub.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+    osc.start(t); sub.start(t); osc.stop(t + 1.7); sub.stop(t + 1.7)
+    if (noteEl) setTimeout(() => {
+      noteEl.classList.remove('playing'); void noteEl.offsetWidth; noteEl.classList.add('playing')
+    }, when * 1000)
+  }
+
+  const arp = (positions) => positions.forEach(([row, f], i) => {
+    const c = cells.get(`${row}:${f}`); play(c.midi, c.note, i * 0.35)
+  })
+  // Open position: A (A string open), C (A3), E (D2), G (D5 / G open), A (G2)
+  document.getElementById('arp').addEventListener('click', () => arp([[2, 0], [2, 3], [1, 2], [0, 0], [0, 2]]))
+  // Fifth-fret shape: A (E5), C (E8), E (A7), G (D5), A (D7)
+  document.getElementById('arp2').addEventListener('click', () => arp([[3, 5], [3, 8], [2, 7], [1, 5], [1, 7]]))
+</script>
+</body>
+</html>
