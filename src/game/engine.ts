@@ -12,7 +12,7 @@ export const MIN_BET = 100
 export const MAX_BET = 100_000
 /** Hands a single spot can be split into. */
 export const MAX_HANDS_PER_SPOT = 4
-export const CHIP_VALUES = [100, 500, 1_000, 5_000, 10_000, 25_000] as const
+export const CHIP_VALUES = [100, 500, 1_000, 5_000, 10_000, 25_000, 50_000, 100_000] as const
 
 export const BONUS_AMOUNT = 50_000
 export const BONUS_INTERVAL_MS = 45 * 60 * 1000
@@ -25,6 +25,8 @@ export type Phase = 'betting' | 'insurance' | 'playing' | 'dealer' | 'settled'
 export type Outcome = 'blackjack' | 'win' | 'push' | 'lose' | 'bust' | 'surrender'
 
 export interface PlayerHand {
+  /** Unique within the round, so a split hand keeps its identity on screen. Missing in older saves. */
+  id?: number
   /** Betting spot this hand belongs to (0 = leftmost). */
   spot: number
   cards: Card[]
@@ -228,6 +230,7 @@ export function deal(state: GameState, makeShoe: () => Card[] = () => createShoe
   for (let spot = 0; spot < s.spotCount; spot++) {
     if (s.bets[spot] <= 0) continue
     s.hands.push({
+      id: s.hands.length,
       spot,
       cards: [],
       bet: s.bets[spot],
@@ -389,7 +392,8 @@ export function split(state: GameState): GameState {
   const index = s.active!
   const hand = s.hands[index]
   s.balance -= hand.bet
-  const second: PlayerHand = { ...hand, cards: [hand.cards[1]], insurance: 0, fromSplit: true }
+  const nextId = Math.max(...s.hands.map((h, i) => h.id ?? i)) + 1
+  const second: PlayerHand = { ...hand, id: nextId, cards: [hand.cards[1]], insurance: 0, fromSplit: true }
   hand.cards = [hand.cards[0]]
   hand.fromSplit = true
   s.hands.splice(index + 1, 0, second)

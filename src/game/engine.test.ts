@@ -227,6 +227,16 @@ describe('player options', () => {
     expect(s.balance).toBe(100_000 - 500)
   })
 
+  it('accepts 50K and 100K chips up to the table limit', () => {
+    let s = newGame(T0)
+    s.balance = 300_000
+    s = placeBet(placeBet(s, 0, 50_000), 0, 50_000)
+    expect(s.bets[0]).toBe(MAX_BET)
+    s = placeBet(s, 1, 100_000)
+    expect(s.bets[1]).toBe(100_000)
+    ruleError(() => placeBet(s, 0, 50_000))
+  })
+
   it('split makes two hands with a bet each', () => {
     // Pair of 8s vs dealer 6; each 8 gets a ten; dealer 6+T then T: bust.
     let s = deal(rigged('8S 6H 8D TC TD TH TS'))
@@ -260,6 +270,8 @@ describe('player options', () => {
     s = split(s) // [8,8] [8,?] [8,8]
     s = split(s) // four hands on one spot
     expect(s.hands).toHaveLength(4)
+    // Every hand keeps its own id, so the table can animate the new one.
+    expect(s.hands.map((h) => h.id)).toEqual([0, 3, 2, 1])
     expect(allowedActions(s).split).toBe(false)
     expect(allowedActions(s).surrender).toBe(false)
     s = hit(s)

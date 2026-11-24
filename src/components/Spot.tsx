@@ -4,6 +4,8 @@ import { chipLabel, chips, signedChips, totalLabel } from '../format'
 import { Card } from './Card'
 
 export const DEAL_STEP_MS = 140
+/** After a split, when each of the two hands gets its new second card (the hands slide apart first). */
+const SPLIT_DEAL_MS = [260, 400]
 
 const OUTCOME_TEXT: Record<Outcome, string> = {
   blackjack: 'Blackjack',
@@ -59,15 +61,25 @@ export function Spot({ state, spot, dealPosition, dealtHands, selectedChip, onBe
   return (
     <div className="spot">
       <div className="spot-hands">
-        {hands.map(({ hand, index }) => (
-          <Hand
-            key={index - hands[0].index}
-            hand={hand}
-            active={state.active === index}
-            settled={state.phase === 'settled'}
-            delays={hand.fromSplit ? [0, 0] : [dealPosition * DEAL_STEP_MS, (dealtHands + 1 + dealPosition) * DEAL_STEP_MS]}
-          />
-        ))}
+        {hands.map(({ hand, index }, position) => {
+          // A split always inserts the new hand right after the one split, so the
+          // first hand on a spot is the original and every other one slid out of it.
+          const splitRole = !hand.fromSplit ? null : position === 0 ? 'origin' : 'new'
+          return (
+            <Hand
+              key={hand.id ?? index}
+              hand={hand}
+              splitRole={splitRole}
+              active={state.active === index}
+              settled={state.phase === 'settled'}
+              delays={
+                splitRole === null
+                  ? [dealPosition * DEAL_STEP_MS, (dealtHands + 1 + dealPosition) * DEAL_STEP_MS]
+                  : [0, SPLIT_DEAL_MS[splitRole === 'origin' ? 0 : 1]]
+              }
+            />
+          )
+        })}
       </div>
     </div>
   )
@@ -75,17 +87,20 @@ export function Spot({ state, spot, dealPosition, dealtHands, selectedChip, onBe
 
 function Hand({
   hand,
+  splitRole,
   active,
   settled,
   delays,
 }: {
   hand: PlayerHand
+  splitRole: 'origin' | 'new' | null
   active: boolean
   settled: boolean
   delays: number[]
 }) {
   const bust = handValue(hand.cards).total > 21
   const classes = ['hand']
+  if (splitRole) classes.push(`split-${splitRole}`)
   if (active) classes.push('active')
   if (hand.outcome) classes.push(`outcome-${hand.outcome}`)
   const net = hand.payout - hand.bet - hand.insurance
@@ -94,7 +109,13 @@ function Hand({
     <div className={classes.join(' ')} aria-current={active ? 'true' : undefined}>
       <div className="cards">
         {hand.cards.map((card, i) => (
-          <Card key={i} card={card} delay={delays[i] ?? 0} />
+          // The key changes when a split replaces the second card, so the new card is dealt in.
+          <Card
+            key={`${i}${card}${hand.fromSplit && i > 0 ? 's' : ''}`}
+            card={card}
+            delay={delays[i] ?? 0}
+            moved={splitRole === 'new' && i === 0}
+          />
         ))}
       </div>
       <div className={`total${bust ? ' bust' : ''}`}>{totalLabel(hand.cards, hand.done)}</div>
@@ -122,6 +143,8 @@ function Hand({
 }
 
 const CHIP_COLORS: [number, string][] = [
+  [100_000, 'c100k'],
+  [50_000, 'c50k'],
   [25_000, 'c25k'],
   [10_000, 'c10k'],
   [5_000, 'c5k'],
